@@ -10,35 +10,22 @@ Bupra uygulamasını hızlıca çalıştırmak için bu adımları takip edin.
 flutter pub get
 ```
 
-### 2. Firebase CLI'ı Yükleyin
+### 2. Firebase Kurulumu
 
-```bash
-dart pub global activate flutterfire_cli
-```
+Detaylı kurulum için [FIREBASE_MANUAL_SETUP.md](FIREBASE_MANUAL_SETUP.md) dosyasına bakın.
 
-### 3. Firebase'e Giriş Yapın
+**Hızlı Adımlar:**
 
-```bash
-firebase login
-```
+1. Firebase Console'da proje oluşturun: https://console.firebase.google.com
+2. Android uygulaması ekleyin (Package: `com.akdbt.bupra`)
+3. `google-services.json` dosyasını indirip `android/app/` klasörüne yerleştirin
 
-### 4. Firebase'i Yapılandırın
-
-```bash
-flutterfire configure
-```
-
-Bu komut sırasında:
-- Firebase projenizi seçin (yoksa önce [Firebase Console](https://console.firebase.google.com/)'da oluşturun)
-- Android ve iOS platformlarını seçin
-
-### 5. Firebase Servislerini Etkinleştirin
+### 3. Firebase Servislerini Etkinleştirin
 
 Firebase Console'da ([console.firebase.google.com](https://console.firebase.google.com/)):
 
 1. **Authentication** > **Sign-in method**:
    - ✅ Email/Password → Enable
-   - ✅ Anonymous → Enable
 
 2. **Firestore Database**:
    - Create database → Production mode → Location seçin → Enable
@@ -46,33 +33,15 @@ Firebase Console'da ([console.firebase.google.com](https://console.firebase.goog
 3. **Storage**:
    - Get started → Production mode → Location seçin → Done
 
-### 6. Güvenlik Kurallarını Ayarlayın
+### 4. Güvenlik Kurallarını Ayarlayın
 
-Detaylı kurallar için [FIREBASE_SETUP.md](FIREBASE_SETUP.md) dosyasına bakın.
+Detaylı kurallar için [FIREBASE_MANUAL_SETUP.md](FIREBASE_MANUAL_SETUP.md) dosyasına bakın.
 
 **Firestore Rules** (Firestore Database > Rules):
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /chats/{chatId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid in resource.data.members;
-    }
-    match /chats/{chatId}/messages/{messageId} {
-      allow read, write: if request.auth != null;
-    }
-    match /friends/{userId}/friends/{friendId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid == userId;
-    }
-  }
-}
-```
+
+Detaylı ve güncel kurallar için [FIRESTORE_SECURITY_RULES.md](FIRESTORE_SECURITY_RULES.md) dosyasına bakın.
+
+**Önemli:** Firestore Security Rules'ı ayarlamadan uygulama çalışmayacaktır.
 
 **Storage Rules** (Storage > Rules):
 ```javascript
@@ -86,23 +55,16 @@ service firebase.storage {
 }
 ```
 
-### 7. main.dart'ı Güncelleyin
+### 5. Firestore Index Oluşturun
 
-`lib/main.dart` dosyasını açın ve yorum satırlarını kaldırın:
+İlk çalıştırmada index hatası alabilirsiniz:
 
-```dart
-import 'firebase_options.dart';  // Yorumu kaldırın
+1. Hata mesajındaki mavi linke tıklayın
+2. "Create Index" butonuna tıklayın
+3. Index oluşturulana kadar bekleyin (1-2 dakika)
+4. Index "Enabled" olduğunda uygulamayı yeniden başlatın
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,  // Yorumu kaldırın
-  );
-  runApp(const MyApp());
-}
-```
-
-### 8. Uygulamayı Çalıştırın
+### 6. Uygulamayı Çalıştırın
 
 ```bash
 flutter run
@@ -111,27 +73,29 @@ flutter run
 ## ✅ Kontrol Listesi
 
 - [ ] `flutter pub get` çalıştırıldı
-- [ ] FlutterFire CLI yüklendi
-- [ ] `flutterfire configure` çalıştırıldı
+- [ ] Firebase projesi oluşturuldu
+- [ ] Android uygulaması eklendi
+- [ ] `google-services.json` yerleştirildi
 - [ ] Firebase Authentication etkinleştirildi
 - [ ] Firestore Database oluşturuldu
 - [ ] Firebase Storage etkinleştirildi
 - [ ] Güvenlik kuralları ayarlandı
-- [ ] `main.dart` güncellendi
+- [ ] Firestore Index oluşturuldu
 - [ ] Uygulama çalışıyor
 
 ## 🐛 Sorun mu Yaşıyorsunuz?
 
-- **"FirebaseApp not initialized"**: `main.dart`'da `firebase_options.dart` import edildiğinden emin olun
+- **"FirebaseApp not initialized"**: `main.dart`'da `Firebase.initializeApp()` çağrısının olduğundan emin olun
 - **"Permission denied"**: Güvenlik kurallarını kontrol edin
+- **"Index required"**: Hata mesajındaki linke tıklayarak index oluşturun
 - **Build hatası**: `flutter clean && flutter pub get` çalıştırın
 
-Detaylı sorun giderme için [FIREBASE_SETUP.md](FIREBASE_SETUP.md) dosyasına bakın.
+Detaylı sorun giderme için [FIREBASE_MANUAL_SETUP.md](FIREBASE_MANUAL_SETUP.md) dosyasına bakın.
 
 ## 📚 Daha Fazla Bilgi
 
 - [README.md](README.md) - Genel proje bilgileri
-- [FIREBASE_SETUP.md](FIREBASE_SETUP.md) - Detaylı Firebase kurulum rehberi
+- [FIREBASE_MANUAL_SETUP.md](FIREBASE_MANUAL_SETUP.md) - Detaylı Firebase kurulum rehberi
 
 ---
 

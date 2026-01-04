@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'home_screen.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_logo.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
   bool _isLoading = false;
   bool _isSignUp = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -47,43 +50,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const MainScreen()),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _handleAnonymousLogin() async {
-    if (_usernameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a username')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      await _authService.signInAnonymously(_usernameController.text.trim());
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         );
       }
     } finally {
@@ -96,9 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isSignUp ? 'Sign Up' : 'Sign In'),
-      ),
+      backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -108,22 +86,64 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 40),
+                // Logo
+                const Center(
+                  child: AppLogo(size: 80),
+                ),
+                const SizedBox(height: 32),
                 Text(
-                  _isSignUp ? 'Create Account' : 'Welcome Back',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  _isSignUp ? 'Hesap Oluştur' : 'Hoş Geldiniz',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _isSignUp
+                      ? 'Yeni hesabınızı oluşturun'
+                      : 'Devam etmek için giriş yapın',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
                 if (_isSignUp) ...[
                   TextFormField(
                     controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      border: OutlineInputBorder(),
+                    style: const TextStyle(color: AppTheme.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Kullanıcı Adı',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      prefixIconColor: AppTheme.textSecondary,
+                      helperText: 'Sistem otomatik olarak unique sayı ekleyecek (örn: bugra#1234)',
+                      helperStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                     ),
+                    onChanged: (value) {
+                      // Clear previous error when user types
+                      if (_formKey.currentState != null) {
+                        _formKey.currentState!.validate();
+                      }
+                    },
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter a username';
+                        return 'Lütfen kullanıcı adı girin';
+                      }
+                      final trimmed = value.trim();
+                      if (trimmed.length < 3) {
+                        return 'Kullanıcı adı en az 3 karakter olmalı';
+                      }
+                      if (trimmed.length > 20) {
+                        return 'Kullanıcı adı en fazla 20 karakter olabilir';
+                      }
+                      // Check for valid characters (alphanumeric and underscore, no #)
+                      if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(trimmed)) {
+                        return 'Kullanıcı adı sadece harf, rakam ve alt çizgi içerebilir';
+                      }
+                      if (trimmed.contains('#')) {
+                        return 'Kullanıcı adı # karakteri içeremez (sayı otomatik eklenir)';
                       }
                       return null;
                     },
@@ -132,17 +152,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
+                  style: const TextStyle(color: AppTheme.textPrimary),
                   keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    prefixIconColor: AppTheme.textSecondary,
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter an email';
+                      return 'Lütfen email girin';
                     }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                    if (!value.contains('@') || !value.contains('.')) {
+                      return 'Geçerli bir email adresi girin';
                     }
                     return null;
                   },
@@ -150,60 +172,65 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
+                  style: const TextStyle(color: AppTheme.textPrimary),
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Şifre',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    prefixIconColor: AppTheme.textSecondary,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: AppTheme.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
-                  obscureText: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
+                      return 'Lütfen şifre girin';
                     }
                     if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return 'Şifre en az 6 karakter olmalı';
                     }
                     return null;
                   },
                 ),
-                if (!_isSignUp) ...[
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username (for anonymous login)',
-                      border: OutlineInputBorder(),
+                const SizedBox(height: 32),
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _handleSubmit,
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(AppTheme.textPrimary),
+                            ),
+                          )
+                        : Text(
+                            _isSignUp ? 'Kayıt Ol' : 'Giriş Yap',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Or use email/password above, or enter username and tap "Continue as Guest"',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleSubmit,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(_isSignUp ? 'Sign Up' : 'Sign In'),
                 ),
-                if (!_isSignUp) ...[
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: _isLoading ? null : _handleAnonymousLogin,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text('Continue as Guest'),
-                  ),
-                ],
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
@@ -211,9 +238,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       _isSignUp = !_isSignUp;
                     });
                   },
-                  child: Text(_isSignUp
-                      ? 'Already have an account? Sign In'
-                      : 'Don\'t have an account? Sign Up'),
+                  child: Text(
+                    _isSignUp
+                        ? 'Zaten hesabınız var mı? Giriş Yap'
+                        : 'Hesabınız yok mu? Kayıt Ol',
+                    style: const TextStyle(
+                      color: AppTheme.accentColor,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -223,4 +255,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

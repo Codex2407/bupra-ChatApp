@@ -1,64 +1,62 @@
-# Bupra - Mini Chat Uygulaması
+# Bupra - Mini Chat Application
 
-Bupra, Flutter ve Firebase kullanılarak geliştirilmiş minimal ve üretim için hazır bir mesajlaşma uygulamasıdır.
+Bupra is a minimal, production-ready messaging application built with Flutter and Firebase.
 
-## 🚀 Özellikler
+## 🚀 Features
 
-- ✅ **Kimlik Doğrulama**: Email/şifre veya anonim giriş
-- ✅ **Kullanıcılar ve Arkadaşlar**: Kullanıcı adı sistemi, arama, arkadaş ekleme
-- ✅ **Birebir Sohbet**: Gerçek zamanlı mesajlaşma
-- ✅ **Grup Sohbeti**: Grup oluşturma ve grup mesajlaşması
-- ✅ **Resim Mesajlaşması**: Galeriden resim seçme ve gönderme
+- ✅ **Authentication**: Email/password login
+- ✅ **Discord-Style Usernames**: Multiple users can choose the same base username, system automatically adds unique number (e.g., bugra#1234, bugra#1256)
+- ✅ **Users & Friends**: User search, add friends
+- ✅ **One-to-One Chat**: Real-time messaging
+- ✅ **Group Chat**: Create groups and group messaging
+- ✅ **Image Messaging**: Pick images from gallery and send
+- ✅ **Premium Dark Theme**: Modern and elegant dark theme
 
-## 📋 Gereksinimler
+## 📋 Requirements
 
-- Flutter SDK (3.10.4 veya üzeri)
+- Flutter SDK (3.10.4 or higher)
 - Dart SDK
-- Firebase hesabı
-- Android Studio / Xcode (platform bağımlı geliştirme için)
+- Firebase account
+- Android Studio / Xcode (for platform-specific development)
 
-## 🔧 Kurulum
+## 🔧 Installation
 
-### 1. Projeyi Klonlayın
+### 1. Clone the Project
 
 ```bash
 git clone <repository-url>
 cd bupra
 ```
 
-### 2. Bağımlılıkları Yükleyin
+### 2. Install Dependencies
 
 ```bash
 flutter pub get
 ```
 
-### 3. Firebase Kurulumu
+### 3. Firebase Setup
 
-Detaylı Firebase kurulum talimatları için [FIREBASE_SETUP.md](FIREBASE_SETUP.md) dosyasına bakın.
+For detailed Firebase setup instructions, see [FIREBASE_MANUAL_SETUP.md](FIREBASE_MANUAL_SETUP.md).
 
-**Hızlı Başlangıç:**
+**Quick Start:**
 
-1. Firebase Console'da yeni bir proje oluşturun
-2. FlutterFire CLI'ı yükleyin:
-   ```bash
-   dart pub global activate flutterfire_cli
-   ```
-3. Firebase'i projeye bağlayın:
-   ```bash
-   flutterfire configure
-   ```
-4. Firebase servislerini etkinleştirin:
-   - Authentication (Email/Password ve Anonymous)
+1. Create a new project in Firebase Console
+2. Add Android app (Package: `com.akdbt.bupra`)
+3. Download `google-services.json` and place it in `android/app/` folder
+4. Enable Firebase services:
+   - Authentication (Email/Password)
    - Cloud Firestore
    - Firebase Storage
+5. Set up Firestore Security Rules (see [FIRESTORE_SECURITY_RULES.md](FIRESTORE_SECURITY_RULES.md) for details)
+6. Create Firestore Index (click the link in error message)
 
-### 4. Uygulamayı Çalıştırın
+### 4. Run the Application
 
 ```bash
 flutter run
 ```
 
-## 📱 Platform Yapılandırması
+## 📱 Platform Configuration
 
 ### Android
 
@@ -68,87 +66,68 @@ flutter run
 
 ### iOS
 
-- **Bundle Identifier**: `com.akdbt.bupra` (Xcode'da ayarlayın)
+- **Bundle Identifier**: `com.akdbt.bupra` (set in Xcode)
 - Minimum iOS: 12.0
 
-## 🏗️ Proje Yapısı
+## 🏗️ Project Structure
 
 ```
 lib/
-├── main.dart                    # Uygulama giriş noktası
-├── models/                      # Veri modelleri
+├── main.dart                    # Application entry point
+├── models/                      # Data models
 │   ├── user_model.dart
 │   ├── chat_model.dart
 │   └── message_model.dart
-├── services/                    # Firebase servisleri
+├── services/                    # Firebase services
 │   ├── auth_service.dart
 │   ├── firestore_service.dart
 │   └── storage_service.dart
-├── screens/                     # Ekranlar
+├── screens/                     # Screens
 │   ├── login_screen.dart
 │   ├── home_screen.dart
 │   ├── friends_screen.dart
 │   ├── chat_screen.dart
 │   └── create_group_screen.dart
-└── widgets/                     # Widget'lar
+└── widgets/                     # Widgets
     └── message_bubble.dart
 ```
 
-## 🔐 Firebase Güvenlik Kuralları
+## 🔍 Firestore Index
 
-### Firestore Kuralları
+When you first run the app, you may get a Firestore index error. This is normal:
 
-Firebase Console > Firestore Database > Rules bölümüne aşağıdaki kuralları ekleyin:
+1. Click the blue link in the error message
+2. Click "Create Index" in Firebase Console
+3. Wait for the index to be created (1-2 minutes)
+4. Restart the app when index is "Enabled"
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
+**Index Details:**
+- Collection: `chats`
+- Fields: `members` (Array) + `updatedAt` (Descending)
 
-    match /chats/{chatId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid in resource.data.members;
-    }
+## 🔐 Firebase Security Rules
 
-    match /chats/{chatId}/messages/{messageId} {
-      allow read, write: if request.auth != null;
-    }
+For detailed security rules, see [FIRESTORE_SECURITY_RULES.md](FIRESTORE_SECURITY_RULES.md).
 
-    match /friends/{userId}/friends/{friendId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid == userId;
-    }
-  }
-}
-```
+**Important:** Firestore Security Rules must be set up in Firebase Console before the app will work.
 
-### Storage Kuralları
-
-Firebase Console > Storage > Rules bölümüne aşağıdaki kuralları ekleyin:
-
-```javascript
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /chats/{chatId}/{fileName} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
-
-## 📊 Veri Modeli
+## 📊 Data Model
 
 ### Users Collection
 ```
 users/{uid}
-  - username: string
+  - username: string (base username, without #number)
+  - displayName: string (full display name, username#number format)
   - email: string
   - photoUrl: string (optional)
+```
+
+### Display Names Collection
+```
+displayNames/{normalizedDisplayName}
+  - uid: string
+  - displayName: string (username#number)
+  - createdAt: timestamp
 ```
 
 ### Friends Collection
@@ -176,33 +155,34 @@ chats/{chatId}/messages/{messageId}
   - createdAt: timestamp
 ```
 
-## 🛠️ Geliştirme
+## 🛠️ Development
 
-### Kod Yapısı
+### Code Structure
 
-- **Services**: Tüm Firebase işlemleri servis sınıflarında toplanmıştır
-- **Models**: Type-safe veri modelleri Firestore serileştirmesi ile
-- **Screens**: Her ekran kendi dosyasında
-- **Widgets**: Yeniden kullanılabilir UI bileşenleri
+- **Services**: All Firebase operations are organized in service classes
+- **Models**: Type-safe data models with Firestore serialization
+- **Screens**: Each screen in its own file
+- **Widgets**: Reusable UI components
 
-### Test Etme
+### Testing
 
 ```bash
 flutter test
 ```
 
-## 📝 Lisans
+## 📝 License
 
-Bu proje özel bir projedir.
+This is a private project.
 
-## 🤝 Katkıda Bulunma
+## 🤝 Contributing
 
-Katkılarınızı bekliyoruz! Lütfen pull request göndermeden önce değişikliklerinizi test edin.
+Contributions are welcome! Please test your changes before submitting a pull request.
 
-## 📞 İletişim
+## 📞 Contact
 
-Sorularınız için issue açabilirsiniz.
+You can open an issue for questions.
 
 ---
 
-**Not**: Bu uygulama eğitim ve geliştirme amaçlıdır. Üretim ortamında kullanmadan önce güvenlik ayarlarını gözden geçirin.
+**Note**: This application is for educational and development purposes. Review security settings before using in production.
+

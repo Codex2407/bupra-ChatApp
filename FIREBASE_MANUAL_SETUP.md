@@ -286,13 +286,53 @@ Aşağıdaki kuralları yapıştırın:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection
-    match /users/{userId} {
+
+    // ============================================
+    // DISPLAY NAME UNIQUENESS ENFORCEMENT
+    // ============================================
+    // CRITICAL: This collection enforces display name uniqueness
+    // Display name format: username#number (e.g., bugra#1234)
+    // Prevents duplicate display names even in race conditions
+    match /displayNames/{normalizedDisplayName} {
+      // Only allow creation if document doesn't exist
+      allow create: if request.auth != null &&
+                       !exists(/databases/$(database)/documents/displayNames/$(normalizedDisplayName)) &&
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.displayName is string &&
+                       request.resource.data.displayName.matches('.*#[0-9]{4}');
+
+      // Allow read for all authenticated users (needed for availability checks and transactions)
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Display name documents should NOT be updated or deleted by clients
+      allow update, delete: if false;
     }
 
-    // Chats collection
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    match /users/{userId} {
+      allow read: if request.auth != null;
+
+      // Users can only create/update their own document
+      // Display name must be in format username#number
+      allow create: if request.auth != null &&
+                       request.auth.uid == userId &&
+                       request.resource.data.username is string &&
+                       request.resource.data.username.size() >= 3 &&
+                       request.resource.data.username.size() <= 20 &&
+                       request.resource.data.displayName is string &&
+                       request.resource.data.displayName.matches('.*#[0-9]{4}');
+
+      allow update: if request.auth != null &&
+                       request.auth.uid == userId;
+
+      allow delete: if false; // Prevent user deletion via client
+    }
+
+    // ============================================
+    // CHATS COLLECTION
+    // ============================================
     match /chats/{chatId} {
       allow read, write: if request.auth != null &&
         request.auth.uid in resource.data.members;
@@ -300,7 +340,9 @@ service cloud.firestore {
         request.auth.uid in request.resource.data.members;
     }
 
-    // Messages subcollection
+    // ============================================
+    // MESSAGES SUBCOLLECTION
+    // ============================================
     match /chats/{chatId}/messages/{messageId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
@@ -308,7 +350,9 @@ service cloud.firestore {
         request.auth.uid == resource.data.senderId;
     }
 
-    // Friends collection
+    // ============================================
+    // FRIENDS COLLECTION
+    // ============================================
     match /friends/{userId}/friends/{friendId} {
       allow read, write: if request.auth != null &&
         request.auth.uid == userId;
@@ -316,6 +360,8 @@ service cloud.firestore {
   }
 }
 ```
+
+**ÖNEMLİ:** Bu kurallar display name benzersizliğini **database seviyesinde** garanti eder. Kullanıcılar aynı base username'i seçebilir (örn: "bugra"), sistem otomatik olarak unique sayı ekler (örn: "bugra#1234", "bugra#1256"). Detaylı açıklama için `FIRESTORE_SECURITY_RULES.md` dosyasına bakın.
 
 **"Publish"** (Yayınla) butonuna tıklayın.
 
@@ -344,7 +390,47 @@ service firebase.storage {
 
 ---
 
-## 9. Test ve Doğrulama
+## 9. Firestore Index Oluşturma
+
+Uygulama ilk çalıştırıldığında Firestore index hatası alabilirsiniz. Bu normaldir ve kolayca çözülebilir.
+
+### Adım 1: Index Hatasını Görme
+
+Uygulamayı çalıştırdığınızda şu hatayı görebilirsiniz:
+```
+[cloud_firestore/failed-precondition] The query requires an index.
+```
+
+### Adım 2: Index Oluşturma
+
+1. **Hata mesajındaki mavi linke tıklayın**
+   - Bu link sizi doğru index oluşturma sayfasına götürür
+   - Index ayarları otomatik olarak hazırlanır
+
+2. **Firebase Console'da "Create Index" butonuna tıklayın**
+
+3. **Index oluşturulana kadar bekleyin**
+   - Durum: "Building..." (1-2 dakika)
+   - Durum: "Enabled" (hazır!)
+
+### Adım 3: Index Detayları
+
+Oluşturulacak index:
+- **Collection ID:** `chats`
+- **Fields:**
+  - `members` (Array)
+  - `updatedAt` (Descending)
+
+### Adım 4: Uygulamayı Yeniden Başlatma
+
+Index "Enabled" olduğunda:
+1. Uygulamayı tamamen kapatın
+2. Uygulamayı yeniden başlatın
+3. Hata kaybolmalı ve sohbetler listelenmeli
+
+---
+
+## 10. Test ve Doğrulama
 
 ### Adım 1: Projeyi Temizle ve Yeniden Derle
 
@@ -411,6 +497,14 @@ flutter run
 ### Hata: "Permission denied" (Firestore)
 
 **Çözüm:** Firestore güvenlik kurallarını kontrol edin ve yayınladığınızdan emin olun.
+
+### Hata: "The query requires an index"
+
+**Çözüm:**
+1. Hata mesajındaki mavi linke tıklayın
+2. "Create Index" butonuna tıklayın
+3. Index oluşturulana kadar bekleyin (1-2 dakika)
+4. Index "Enabled" olduğunda uygulamayı yeniden başlatın
 
 ### Hata: Build hatası
 

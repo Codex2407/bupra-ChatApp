@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../models/user_model.dart';
+import '../theme/app_theme.dart';
+import '../widgets/custom_card.dart';
 import 'chat_screen.dart';
 
 class CreateGroupScreen extends StatefulWidget {
@@ -27,20 +29,34 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a group name')),
+        SnackBar(
+          content: const Text('Lütfen grup adı girin'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
       return;
     }
 
     if (_selectedFriends.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one friend')),
+        SnackBar(
+          content: const Text('Lütfen en az bir arkadaş seçin'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
       return;
     }
 
     final currentUserId = _authService.currentUser?.uid;
-    if (currentUserId == null) return;
+    if (currentUserId == null || currentUserId.isEmpty) return;
 
     try {
       final members = [currentUserId, ..._selectedFriends];
@@ -57,7 +73,14 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create group: $e')),
+          SnackBar(
+            content: Text('Grup oluşturulamadı: $e'),
+            backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         );
       }
     }
@@ -68,12 +91,25 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     final currentUserId = _authService.currentUser?.uid;
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Create Group'),
+        title: const Text('Grup Oluştur'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: _createGroup,
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primaryColor,
+                  AppTheme.accentColor,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.check_rounded),
+              onPressed: _createGroup,
+            ),
           ),
         ],
       ),
@@ -83,65 +119,98 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Group Name',
-                border: OutlineInputBorder(),
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Grup Adı',
+                prefixIcon: const Icon(Icons.group_rounded),
+                prefixIconColor: AppTheme.textSecondary,
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Select Friends',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Arkadaş Seç',
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
           Expanded(
-            child: currentUserId == null
-                ? const Center(child: Text('Not authenticated'))
+            child: currentUserId == null || currentUserId.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Not authenticated',
+                      style: TextStyle(color: AppTheme.textPrimary),
+                    ),
+                  )
                 : FutureBuilder<List<UserModel>>(
                     future: _firestoreService.getFriends(currentUserId),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState ==
                           ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                          ),
+                        );
                       }
 
                       final friends = snapshot.data ?? [];
 
                       if (friends.isEmpty) {
-                        return const Center(
-                          child: Text('No friends yet. Add friends first.'),
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Icon(
+                                  Icons.people_outline_rounded,
+                                  size: 40,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              const Text(
+                                'Henüz arkadaş yok',
+                                style: TextStyle(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Önce arkadaş ekleyin',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
                         );
                       }
 
                       return ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: friends.length,
                         itemBuilder: (context, index) {
                           final friend = friends[index];
                           final isSelected = _selectedFriends.contains(friend.uid);
 
-                          return ListTile(
-                            leading: CircleAvatar(
-                              child: Text(friend.username[0].toUpperCase()),
-                            ),
-                            title: Text(friend.username),
-                            subtitle: Text(friend.email),
-                            trailing: Checkbox(
-                              value: isSelected,
-                              onChanged: (value) {
-                                setState(() {
-                                  if (value == true) {
-                                    _selectedFriends.add(friend.uid);
-                                  } else {
-                                    _selectedFriends.remove(friend.uid);
-                                  }
-                                });
-                              },
-                            ),
+                          return CustomCard(
                             onTap: () {
                               setState(() {
                                 if (isSelected) {
@@ -151,6 +220,94 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                                 }
                               });
                             },
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    gradient: isSelected
+                                        ? LinearGradient(
+                                            colors: [
+                                              AppTheme.primaryColor,
+                                              AppTheme.accentColor,
+                                            ],
+                                          )
+                                        : null,
+                                    color: isSelected
+                                        ? null
+                                        : AppTheme.primaryColor.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      friend.username.isNotEmpty
+                                          ? friend.username[0].toUpperCase()
+                                          : 'U',
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? AppTheme.textPrimary
+                                            : AppTheme.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        friend.displayName.isNotEmpty
+                                            ? friend.displayName
+                                            : 'Bilinmeyen',
+                                        style: const TextStyle(
+                                          color: AppTheme.textPrimary,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        friend.email.isNotEmpty
+                                            ? friend.email
+                                            : 'Email yok',
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppTheme.primaryColor
+                                          : AppTheme.dividerColor,
+                                      width: 2,
+                                    ),
+                                    color: isSelected
+                                        ? AppTheme.primaryColor
+                                        : Colors.transparent,
+                                  ),
+                                  child: isSelected
+                                      ? const Icon(
+                                          Icons.check_rounded,
+                                          size: 16,
+                                          color: AppTheme.textPrimary,
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            ),
                           );
                         },
                       );
@@ -162,4 +319,3 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     );
   }
 }
-

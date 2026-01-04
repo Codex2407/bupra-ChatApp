@@ -6,6 +6,7 @@ import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
 import '../models/message_model.dart';
 import '../models/user_model.dart';
+import '../theme/app_theme.dart';
 import '../widgets/message_bubble.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
 
     final senderId = _authService.currentUser?.uid;
-    if (senderId == null) return;
+    if (senderId == null || senderId.isEmpty) return;
 
     try {
       await _firestoreService.sendMessage(widget.chatId, senderId, text, null);
@@ -46,7 +47,14 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send message: $e')),
+          SnackBar(
+            content: Text('Mesaj gönderilemedi: $e'),
+            backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         );
       }
     }
@@ -54,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendImage() async {
     final senderId = _authService.currentUser?.uid;
-    if (senderId == null) return;
+    if (senderId == null || senderId.isEmpty) return;
 
     try {
       final image = await _imagePicker.pickImage(
@@ -66,7 +74,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Uploading image...')),
+          SnackBar(
+            content: const Text('Resim yükleniyor...'),
+            backgroundColor: AppTheme.surfaceColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         );
       }
 
@@ -89,7 +104,14 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send image: $e')),
+          SnackBar(
+            content: Text('Resim gönderilemedi: $e'),
+            backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         );
       }
     }
@@ -108,19 +130,30 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<String> _getChatTitle() async {
-    final chat = await _firestoreService.getChatStream(widget.chatId).first;
-    if (chat == null) return 'Chat';
+    try {
+      final chat = await _firestoreService.getChatStream(widget.chatId).first;
+      if (chat == null) return 'Sohbet';
 
-    final currentUserId = _authService.currentUser?.uid;
-    if (currentUserId == null) return 'Chat';
+      final currentUserId = _authService.currentUser?.uid;
+      if (currentUserId == null || currentUserId.isEmpty) return 'Sohbet';
 
-    if (chat.isGroup) {
-      return chat.name ?? 'Group Chat';
-    } else {
-      final otherUserId =
-          chat.members.firstWhere((id) => id != currentUserId);
-      final user = await _firestoreService.getUser(otherUserId);
-      return user?.username ?? 'Unknown';
+      if (chat.isGroup) {
+        return chat.name?.isNotEmpty == true ? chat.name! : 'Grup Sohbeti';
+      } else {
+        try {
+          final otherUserId = chat.members.firstWhere(
+            (id) => id != currentUserId && id.isNotEmpty,
+            orElse: () => '',
+          );
+          if (otherUserId.isEmpty) return 'Sohbet';
+          final user = await _firestoreService.getUser(otherUserId);
+          return user?.displayName.isNotEmpty == true ? user!.displayName : 'Bilinmeyen';
+        } catch (e) {
+          return 'Sohbet';
+        }
+      }
+    } catch (e) {
+      return 'Sohbet';
     }
   }
 
@@ -129,13 +162,31 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUserId = _authService.currentUser?.uid;
 
     return Scaffold(
+      backgroundColor: AppTheme.chatBackgroundColor,
       appBar: AppBar(
         title: FutureBuilder<String>(
           future: _getChatTitle(),
           builder: (context, snapshot) {
-            return Text(snapshot.data ?? 'Chat');
+            return Text(snapshot.data ?? 'Sohbet');
           },
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert_rounded),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Yakında eklenecek'),
+                  backgroundColor: AppTheme.surfaceColor,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -144,24 +195,78 @@ class _ChatScreenState extends State<ChatScreen> {
               stream: _firestoreService.getMessagesStream(widget.chatId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    ),
+                  );
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 48,
+                          color: AppTheme.errorColor,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Hata: ${snapshot.error}',
+                          style: const TextStyle(color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 final messages = snapshot.data ?? [];
 
                 if (messages.isEmpty) {
-                  return const Center(
-                    child: Text('No messages yet. Start the conversation!'),
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 40,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Henüz mesaj yok',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'İlk mesajı göndererek sohbete başlayın',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 }
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
@@ -174,7 +279,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         return MessageBubble(
                           message: message,
                           isMe: isMe,
-                          senderName: sender?.username ?? 'Unknown',
+                          senderName: sender?.displayName.isNotEmpty == true
+                              ? sender!.displayName
+                              : 'Bilinmeyen',
                         );
                       },
                     );
@@ -183,45 +290,84 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          // Message Input Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: AppTheme.surfaceColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 4,
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
                   offset: const Offset(0, -2),
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.image),
-                  onPressed: _sendImage,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+            child: SafeArea(
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.image_outlined),
+                      color: AppTheme.textSecondary,
+                      onPressed: _sendImage,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: TextField(
+                        controller: _messageController,
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Mesaj yazın...',
+                          hintStyle: const TextStyle(color: AppTheme.textSecondary),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
+                        onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
-                    maxLines: null,
-                    textCapitalization: TextCapitalization.sentences,
-                    onSubmitted: (_) => _sendMessage(),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.primaryColor,
+                          AppTheme.accentColor,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.send_rounded),
+                      color: AppTheme.textPrimary,
+                      onPressed: _sendMessage,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -229,4 +375,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-

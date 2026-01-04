@@ -21,16 +21,64 @@ class FirestoreService {
   }
 
   Future<List<UserModel>> searchUsers(String query) async {
+    // Search by displayName (username#number format)
+    // This allows searching by both "bugra" and "bugra#1234"
     final snapshot = await _firestore
         .collection('users')
-        .where('username', isGreaterThanOrEqualTo: query)
-        .where('username', isLessThanOrEqualTo: '$query\uf8ff')
+        .where('displayName', isGreaterThanOrEqualTo: query)
+        .where('displayName', isLessThanOrEqualTo: '$query\uf8ff')
         .limit(20)
         .get();
 
     return snapshot.docs
         .map((doc) => UserModel.fromMap(doc.data(), doc.id))
         .toList();
+  }
+
+  // Check if email already exists
+  Future<bool> emailExists(String email) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Check if username already exists (case-insensitive)
+  Future<bool> usernameExists(String username) async {
+    try {
+      // Normalize username to lowercase for comparison
+      final normalizedUsername = username.toLowerCase().trim();
+
+      if (normalizedUsername.isEmpty) {
+        return false;
+      }
+
+      // Get all users and check case-insensitively
+      final snapshot = await _firestore
+          .collection('users')
+          .get();
+
+      // Check if any username matches (case-insensitive)
+      for (var doc in snapshot.docs) {
+        final userData = doc.data();
+        final existingUsername = userData['username']?.toString().toLowerCase().trim() ?? '';
+        if (existingUsername.isNotEmpty && existingUsername == normalizedUsername) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      // If query fails, return false
+      // In production, you might want to log this to a monitoring service
+      return false;
+    }
   }
 
   // Friends

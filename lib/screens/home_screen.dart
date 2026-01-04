@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../models/chat_model.dart';
+import '../theme/app_theme.dart';
+import '../widgets/custom_card.dart';
 import 'chat_screen.dart';
-import 'friends_screen.dart';
 import 'create_group_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -16,31 +17,35 @@ class HomeScreen extends StatelessWidget {
     final currentUserId = authService.currentUser?.uid;
 
     if (currentUserId == null) {
-      return const Scaffold(
-        body: Center(child: Text('Not authenticated')),
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        body: const Center(
+          child: Text(
+            'Not authenticated',
+            style: TextStyle(color: AppTheme.textPrimary),
+          ),
+        ),
       );
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Chats'),
+        title: const Text('Sohbetler'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.people),
+            icon: const Icon(Icons.search_rounded),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FriendsScreen()),
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Arama yakında eklenecek'),
+                  backgroundColor: AppTheme.surfaceColor,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authService.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
-              }
             },
           ),
         ],
@@ -49,11 +54,31 @@ class HomeScreen extends StatelessWidget {
         stream: firestoreService.getChatsStream(currentUserId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+              ),
+            );
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: AppTheme.errorColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Hata: ${snapshot.error}',
+                    style: const TextStyle(color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+            );
           }
 
           final chats = snapshot.data ?? [];
@@ -63,18 +88,39 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text('No chats yet'),
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 40,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Henüz sohbet yok',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const FriendsScreen()),
-                      );
-                    },
-                    child: const Text('Add friends to start chatting'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 48),
+                    child: Text(
+                      'Arkadaşlar sekmesinden arkadaş ekleyerek\nsohbet başlatabilirsiniz',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -82,6 +128,7 @@ class HomeScreen extends StatelessWidget {
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: chats.length,
             itemBuilder: (context, index) {
               final chat = chats[index];
@@ -97,7 +144,7 @@ class HomeScreen extends StatelessWidget {
             MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
           );
         },
-        child: const Icon(Icons.group_add),
+        child: const Icon(Icons.group_add_rounded),
       ),
     );
   }
@@ -114,11 +161,19 @@ class _ChatListItem extends StatelessWidget {
 
   Future<String> _getChatTitle(FirestoreService firestoreService) async {
     if (chat.isGroup) {
-      return chat.name ?? 'Group';
+      return chat.name?.isNotEmpty == true ? chat.name! : 'Grup';
     } else {
-      final otherUserId = chat.members.firstWhere((id) => id != currentUserId);
-      final user = await firestoreService.getUser(otherUserId);
-      return user?.username ?? 'Unknown';
+      try {
+        final otherUserId = chat.members.firstWhere(
+          (id) => id != currentUserId && id.isNotEmpty,
+          orElse: () => '',
+        );
+        if (otherUserId.isEmpty) return 'Bilinmeyen';
+        final user = await firestoreService.getUser(otherUserId);
+        return user?.displayName.isNotEmpty == true ? user!.displayName : 'Bilinmeyen';
+      } catch (e) {
+        return 'Bilinmeyen';
+      }
     }
   }
 
@@ -129,24 +184,9 @@ class _ChatListItem extends StatelessWidget {
     return FutureBuilder<String>(
       future: _getChatTitle(firestoreService),
       builder: (context, snapshot) {
-        final title = snapshot.data ?? 'Loading...';
+        final title = snapshot.data ?? 'Yükleniyor...';
 
-        return ListTile(
-          leading: CircleAvatar(
-            child: chat.isGroup
-                ? const Icon(Icons.group)
-                : const Icon(Icons.person),
-          ),
-          title: Text(title),
-          subtitle: Text(
-            chat.lastMessage ?? 'No messages yet',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: Text(
-            _formatTime(chat.updatedAt),
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
+        return CustomCard(
           onTap: () {
             Navigator.push(
               context,
@@ -155,6 +195,75 @@ class _ChatListItem extends StatelessWidget {
               ),
             );
           },
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: chat.isGroup
+                      ? LinearGradient(
+                          colors: [
+                            AppTheme.primaryColor,
+                            AppTheme.accentColor,
+                          ],
+                        )
+                      : null,
+                  color: chat.isGroup ? null : AppTheme.primaryColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  chat.isGroup ? Icons.group_rounded : Icons.person_rounded,
+                  color: chat.isGroup ? AppTheme.textPrimary : AppTheme.primaryColor,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      chat.lastMessage?.isNotEmpty == true
+                          ? chat.lastMessage!
+                          : 'Henüz mesaj yok',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _formatTime(chat.updatedAt),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
@@ -167,10 +276,9 @@ class _ChatListItem extends StatelessWidget {
     if (difference.inDays == 0) {
       return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
+      return '${difference.inDays}g';
     } else {
       return '${dateTime.day}/${dateTime.month}';
     }
   }
 }
-

